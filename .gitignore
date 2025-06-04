@@ -1,3 +1,7 @@
 build/
 TSB_UAD.egg-info/
 dist/
+__MACOSX/
+data/
+TSB_UAD/
+**/*.pyc
