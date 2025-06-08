@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 
 from ..vus.utils.metrics import metricor
 
+
 def plotFig(data, label, score, slidingWindow, fileName, modelName, plotRange=None):
+    plt.rcParams['text.usetex'] = False
     grader = metricor()
     
     range_anomaly = grader.range_convers_new(label)

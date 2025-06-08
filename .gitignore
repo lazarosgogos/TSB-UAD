@@ -3,5 +3,7 @@ TSB_UAD.egg-info/
 dist/
 __MACOSX/
 data/
-TSB_UAD/
+TSB_UAD/*.py
 **/*.pyc
+**/__pycache__
+.continue/

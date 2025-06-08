@@ -11,7 +11,10 @@ from sklearn.utils import check_array
 
 from ..utils.utility import invert_order
 from .detectorB import DetectorB
-
+from .imondrian.mondrianforest import MondrianForest
+from .imondrian import mondrianforest
+from .imondrian import mondrianforest_utils 
+import numpy as np
 
 class IForest(DetectorB):
     """Wrapper of scikit-learn IsolationForest Class with more functionalities.
@@ -95,7 +98,7 @@ class IForest(DetectorB):
         self.verbose = verbose
         self.model_name = 'IForest'
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, online=False, verbose=False, batch_size=None, variant=1):
         """Fit detector. y is ignored in unsupervised methods.
         
         Parameters
@@ -117,8 +120,8 @@ class IForest(DetectorB):
             X = X.reshape(-1, 1)
         
         X = check_array(X)
-            
-        self.detector_ = IsolationForest(n_estimators=self.n_estimators,
+        if not online: # if offline - default
+            self.detector_ = IsolationForest(n_estimators=self.n_estimators,
                                             max_samples=self.max_samples,
                                             contamination=self.contamination,
                                             max_features=self.max_features,
@@ -127,12 +130,98 @@ class IForest(DetectorB):
                                             random_state=self.random_state,
                                             verbose=self.verbose)
 
+            self.detector_.fit(X=X, y=None, sample_weight=None)
 
-        self.detector_.fit(X=X, y=None, sample_weight=None)
+            # invert decision_scores_. Outliers comes with higher outlier scores.
+            self.decision_scores_ = -self.detector_.score_samples(X)
+            return self
+        else: # if online
+            if batch_size is None:
+                    print('You must specify a value for batch_size, in order to ' \
+                    'run IForest in an online setting')
+                    return None
+            if not (variant == 1 or variant == 2):
+                print('variant can either be 1 or 2, no other value')
+                return None
+            if variant == 1: # variant 1 - naive approach
+                self.detector_ = IsolationForest(n_estimators=self.n_estimators,
+                                                max_samples=self.max_samples,
+                                                contamination=self.contamination,
+                                                max_features=self.max_features,
+                                                bootstrap=self.bootstrap,
+                                                n_jobs=self.n_jobs,
+                                                random_state=self.random_state,
+                                                verbose=self.verbose,
+                                                warm_start=False) # add warm start
+                
+                # initialize some variables
+                self.current_time = 0
 
-        # invert decision_scores_. Outliers comes with higher outlier scores.
-        self.decision_scores_ = -self.detector_.score_samples(X)
-        return self
+                for i in range(0, len(X), batch_size):
+                    self.current_time = i
+                    max_next_step = min(self.current_time+batch_size, len(X))
+                    if self.current_time != max_next_step:
+                        batch = X[self.current_time:max_next_step, :] # a batch of data 
+                        # how will i use the n_features dimension (second) of X ??
+                        self.detector_.fit(X=batch, y=None, sample_weight=None)
+                    if verbose:
+                        print(self.current_time,end='-->')
+                self.decision_scores_ = -self.detector_.score_samples(X)
+                return self
+            else: # variant 2 - improved approach
+                
+                argv = [
+                        '--n_minibatches', '1',
+                        '--n_mondrians', str(self.n_estimators),
+                        '--budget', '-1',
+                        '--normalize_features', '1',
+                        '--optype', 'class',
+                        '--draw_mondrian', '0',
+                        # '--verbose', '2',
+                        # '--debug', '1',
+                        '--isolate',
+                    ]
+                settings = mondrianforest.process_command_line(argv)
+                data = MondrianForest.format_data_dict(X, y)
+                param, cache = mondrianforest_utils.precompute_minimal(data, settings)
+                self.detector_ = MondrianForest(settings, data)
+                print(('Training on %d samples of dimension %d' %
+                            (data['n_train'], data['n_dim'])))
+                # train_ids_current_minibatch = data['train_ids_partition']['current'][0]
+                # # indices of first batch ?
+
+                
+                
+                # initialize some variables
+                self.current_time = 0
+
+                for i in range(0, len(X), batch_size):
+                    self.current_time = i
+                    max_next_step = min(self.current_time+batch_size, len(X))
+                    if verbose:
+                        print(self.current_time,end='-->')
+                    current_indices = np.arange(i, max_next_step) #list(range(i, max_next_step))
+                    # batch = X[self.current_time:max_next_step, :] # a batch of data 
+                    if i == 0:
+                        # code below is taken from IsolationForest
+                        if isinstance(self.max_samples, str) and self.max_samples == "auto":
+                            n_samples = X.shape[0]
+                            max_samples = min(256, n_samples)
+                        self.detector_.fit(data, current_indices, settings, param, cache, subsampling_size=max_samples)
+                    else:
+                        self.detector_.partial_fit(data, current_indices, settings, param, cache)
+                    # how will i use the n_features dimension (second) of X ??
+                    # self.detector_.fit(X=batch, y=None, sample_weight=None)
+                if verbose:
+                    print(len(X), '[END]')
+                self.decision_scores_ = -self.detector_.score_samples(X)
+                return self
+
+
+
+
+
+            
 
     def decision_function(self, X):
         """Predict raw anomaly score of X using the fitted detector.
