@@ -74,7 +74,7 @@ class lstm:
         self.n_test_ = None
         self.Y = None
         self.estimation = None
-        
+
         self.mu = 0.0
         self.std = 1.0
 
@@ -83,7 +83,7 @@ class lstm:
         model.add(LSTM(50, return_sequences=True, input_shape=(self.slidingwindow, 1)))
         model.add(LSTM(50))
         model.add(Dense(self.predict_time_steps))
-        model.compile(loss="mse", optimizer='adam')
+        model.compile(loss="mse", optimizer="adam")
         return model
 
     def _create_dataset(self, X):
@@ -139,6 +139,10 @@ class lstm:
         """
         if self.streaming:
             raise ValueError("Use partial_fit in streaming mode")
+        
+        if X_dirty is None:
+            X_dirty = X_clean
+            X_clean = X_clean[: int(0.1 * len(X_clean))]
 
         split_index = int(len(X_clean) * (1 - ratio))
         train, val = X_clean[:split_index], X_clean[split_index:]
@@ -159,8 +163,6 @@ class lstm:
             callbacks=[es],
         )
 
-        if X_dirty is None:
-            X_dirty = X_clean
         test_ds = self._create_dataset(X_dirty)
         prediction = self.model.predict(test_ds)
 
@@ -192,7 +194,7 @@ class lstm:
         """
         if not self.streaming:
             raise ValueError("Use fit() in batch mode")
-        
+
         self.bufferX.append(x)
         self.bufferY.append(y)
         if len(self.bufferX) < self.slidingwindow + self.predict_time_steps:
@@ -203,7 +205,7 @@ class lstm:
 
         # cond = a_x.mean() > self.mu + np.abs(self.std * 3)
         cond = np.abs(a_x.mean() - self.mu) > self.std * 3
-        if (cond):
+        if cond:
             print("COND TRUE")
             self.mu = a_x.mean()
             self.std = a_x.std()
@@ -215,11 +217,10 @@ class lstm:
                 self._retrain_model(buffer_dataset)
                 print(f"Distribution shift detected, retraining model")
 
-
         # window = list(self.buffer)[-self.slidingwindow - self.predict_time_steps :]
         # X_seq = np.array(window[: self.slidingwindow], dtype=np.float32)[:, 0].reshape(1, self.slidingwindow, 1)
         # print(f"{X_seq=}")
-        
+
         # y_true = np.array(window[: self.slidingwindow], dtype=np.int32)[:, 1].reshape(1, -1)
         # print(f"{y_true=}")
 
@@ -230,9 +231,6 @@ class lstm:
         #     y_true.append(y.numpy())
         # X_seq = np.array(X_seq)
         # y_true = np.array(y_true)
-        
-
-
 
         # X_seq, y_true = list(dataset)
         # # y_true = np.array(list(tfds.as_numpy(dataset)))[:, 1]
@@ -262,7 +260,6 @@ class lstm:
         #     return
         # dataset = self._create_dataset(X)
 
-
         es = EarlyStopping(
             monitor="val_loss", patience=self.patience, verbose=self.verbose
         )
@@ -272,7 +269,7 @@ class lstm:
             epochs=self.epochs,
             batch_size=self.batch_size,
             verbose=self.verbose,
-            callbacks=[es]
+            callbacks=[es],
         )
         prediction = self.model.predict(buffer_dataset)
 
