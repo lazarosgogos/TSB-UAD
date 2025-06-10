@@ -1565,10 +1565,10 @@ class MondrianForest(Forest):
                     train_ids_current_minibatch, subsampling_size, replace=False)
             else:
                 train_ids = train_ids_current_minibatch
-
             tree = self.forest[i_t] = MondrianTree(
                 data, train_ids, settings, param, cache,
             )
+
         self._settings = settings
         if self.contamination == "auto":
             # 0.5 plays a special role as described in the original paper.
@@ -1584,13 +1584,20 @@ class MondrianForest(Forest):
             #     param, data, settings,
             # )
 
-    def partial_fit(self, data, train_ids_current_minibatch, settings, param, cache):
+    def partial_fit(self, data, train_ids_current_minibatch, settings, param, cache, subsampling_size=None):
+
         for i_t, tree in enumerate(self.forest):
             if settings.verbose >= 2 or settings.debug:
                 print(('tree_id = %s' % i_t))
+
+            if subsampling_size is not None:
+                train_ids = np.random.choice(
+                    train_ids_current_minibatch, subsampling_size, replace=False)
+            else:
+                train_ids = train_ids_current_minibatch
             
             tree.extend_mondrian(
-                data, train_ids_current_minibatch, settings, param, cache,
+                data, train_ids, settings, param, cache,
             )
         # X = data['x_train']
         # self.offset_ = np.percentile(self._score_samples(X, self._settings), 100.0 * self.contamination)

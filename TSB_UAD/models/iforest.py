@@ -177,6 +177,7 @@ class IForest(DetectorB):
                         '--normalize_features', '1',
                         '--optype', 'class',
                         '--draw_mondrian', '0',
+                        # '--bagging', '1',
                         # '--verbose', '2',
                         # '--debug', '1',
                         '--isolate',
@@ -202,14 +203,14 @@ class IForest(DetectorB):
                         print(self.current_time,end='-->')
                     current_indices = np.arange(i, max_next_step) #list(range(i, max_next_step))
                     # batch = X[self.current_time:max_next_step, :] # a batch of data 
+                    # code below is taken from IsolationForest
+                    if isinstance(self.max_samples, str) and self.max_samples == "auto":
+                        n_samples = X.shape[0]
+                        max_samples = min(3, n_samples)
                     if i == 0:
-                        # code below is taken from IsolationForest
-                        if isinstance(self.max_samples, str) and self.max_samples == "auto":
-                            n_samples = X.shape[0]
-                            max_samples = min(256, n_samples)
                         self.detector_.fit(data, current_indices, settings, param, cache, subsampling_size=max_samples)
                     else:
-                        self.detector_.partial_fit(data, current_indices, settings, param, cache)
+                        self.detector_.partial_fit(data, current_indices, settings, param, cache, subsampling_size=max_samples)
                     # how will i use the n_features dimension (second) of X ??
                     # self.detector_.fit(X=batch, y=None, sample_weight=None)
                 if verbose:
