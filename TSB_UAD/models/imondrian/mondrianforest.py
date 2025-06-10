@@ -1591,8 +1591,13 @@ class MondrianForest(Forest):
                 print(('tree_id = %s' % i_t))
 
             if subsampling_size is not None:
-                train_ids = np.random.choice(
+                try: 
+                    train_ids = np.random.choice(
                     train_ids_current_minibatch, subsampling_size, replace=False)
+                except:
+                    l = len(train_ids_current_minibatch)//10
+                    train_ids = np.random.choice(
+                    train_ids_current_minibatch, l, replace=False)
             else:
                 train_ids = train_ids_current_minibatch
             

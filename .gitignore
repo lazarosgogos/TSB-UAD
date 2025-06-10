@@ -7,3 +7,5 @@ TSB_UAD/*.py
 **/*.pyc
 **/__pycache__
 .continue/
+TSB_UAD/models/norma.py
+TSB_UAD/models/series2graph.py

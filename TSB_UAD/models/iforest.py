@@ -151,8 +151,7 @@ class IForest(DetectorB):
                                                 bootstrap=self.bootstrap,
                                                 n_jobs=self.n_jobs,
                                                 random_state=self.random_state,
-                                                verbose=self.verbose,
-                                                warm_start=False) # add warm start
+                                                verbose=self.verbose)
                 
                 # initialize some variables
                 self.current_time = 0
@@ -206,7 +205,9 @@ class IForest(DetectorB):
                     # code below is taken from IsolationForest
                     if isinstance(self.max_samples, str) and self.max_samples == "auto":
                         n_samples = X.shape[0]
-                        max_samples = min(3, n_samples)
+                        max_samples = min(256, n_samples)
+                    else:
+                        max_samples = self.max_samples
                     if i == 0:
                         self.detector_.fit(data, current_indices, settings, param, cache, subsampling_size=max_samples)
                     else:
